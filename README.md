@@ -7,10 +7,10 @@
 ## Requirements
 Prerequisites include:
 
-* Numpy, matplotlib
+* Numpy, matplotlib, scikit-learn
 * RDkit
 * PyTorch
-* DGL
+* DGL, DGL-LifeSci
 
 ## Examples
 In `evaluation.py`, you can see the r2 and RMSE score based on ECFP, NFP, RDKit Morgan Fingerprint by using zinc dataset.
