@@ -15,6 +15,8 @@ Prerequisites include:
 ## Examples
 In `evaluation.py`, you can see the r2 and RMSE score based on ECFP, NFP, RDKit Morgan Fingerprint in zinc dataset.
 
+* minimum usage
+
 ```python
 from nfp import NFPRegressor
 import rdkit.Chem as Chem
