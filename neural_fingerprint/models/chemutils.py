@@ -1,11 +1,13 @@
 import dgl
-from dgllife.utils import mol_to_bigraph
-from dgllife.utils import CanonicalAtomFeaturizer, CanonicalBondFeaturizer, BaseAtomFeaturizer
-import torch
-from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
+import mordred
 import numpy as np
+import pandas as pd
+import torch
+from dgllife.utils import (BaseAtomFeaturizer, CanonicalAtomFeaturizer,
+                           CanonicalBondFeaturizer, mol_to_bigraph)
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 def createNodeFeatures(atom) -> list:
@@ -27,14 +29,17 @@ def createNodeFeatures(atom) -> list:
         atom.GetExplicitValence(),
         atom.GetImplicitValence(),
         atom.GetFormalCharge(),
-        atom.GetTotalNumHs()]
+        atom.GetTotalNumHs(),
+    ]
 
     return features
 
 
 class MyNodeFeaturizer(BaseAtomFeaturizer):
-    def __init__(self, atom_data_field='h'):
-        super(MyNodeFeaturizer, self).__init__(featurizer_funcs={atom_data_field: createNodeFeatures})
+    def __init__(self, atom_data_field="h"):
+        super(MyNodeFeaturizer, self).__init__(
+            featurizer_funcs={atom_data_field: createNodeFeatures}
+        )
 
 
 class CustomDataset:
@@ -60,7 +65,10 @@ class CustomDataset:
 
 
 def collate_molgraphs(data):
-    assert len(data[0]) in [3, 4], 'Expect the tuple to be of length 3 or 4, got {:d}'.format(len(data[0]))
+    assert len(data[0]) in [
+        3,
+        4,
+    ], "Expect the tuple to be of length 3 or 4, got {:d}".format(len(data[0]))
     if len(data[0]) == 3:
         smiles, graphs, labels = map(list, zip(*data))
         masks = None
@@ -81,9 +89,14 @@ def collate_molgraphs(data):
 
 def mol_to_graph(mols: list, canonical: bool = False) -> dgl.DGLGraph:
     if canonical:
-        graph = [mol_to_bigraph(mol,
-                                node_featurizer=CanonicalAtomFeaturizer(),
-                                edge_featurizer=CanonicalBondFeaturizer()) for mol in mols]
+        graph = [
+            mol_to_bigraph(
+                mol,
+                node_featurizer=CanonicalAtomFeaturizer(),
+                edge_featurizer=CanonicalBondFeaturizer(),
+            )
+            for mol in mols
+        ]
     else:
         graph = [mol_to_bigraph(m, node_featurizer=MyNodeFeaturizer()) for m in mols]
 
@@ -107,32 +120,21 @@ def rf_evalation(train_x, test_x, train_y, test_y, args=None):
     else:
         plt.title(f"RMSE={rmse}, R2={r2}")
 
-    print(f'r2={r2}, RMSE={rmse}')
-    plt.scatter(test_y, test_pred, label='test')
-    plt.scatter(train_y, train_pred, label='train', alpha=0.2)
+    print(f"r2={r2}, RMSE={rmse}")
+    plt.scatter(test_y, test_pred, label="test")
+    plt.scatter(train_y, train_pred, label="train", alpha=0.2)
     plt.legend()
     plt.show()
 
 
-def str2nan(df):
-    """convert str to nan for mordred descriptors include string object in data frame.
+def _convert_error_columns(df_mordred: pd.DataFrame) -> pd.DataFrame:
+    masks = df_mordred.applymap(lambda d: isinstance(d, mordred.error.Missing))
+    df_mordred = df_mordred[~masks]
+    for c in df_mordred.columns:
+        if df_mordred[c].dtypes == object:
+            df_mordred = df_mordred.drop(c, axis=1)
 
-    :param df: pandas dataframe
-    :return:
-    """
-    train = df.copy()
-    filterdColumns = train.columns[train.dtypes == np.object]
-
-    def tonan(x):
-        if isinstance(x, str):
-            return np.nan
-        else:
-            return x
-
-    for col in filterdColumns:
-        train.loc[:, col] = train.loc[:, col].map(tonan)
-
-    return train
+    return df_mordred
 
 
 def calc_mordred_desc(mols: list):
@@ -140,5 +142,5 @@ def calc_mordred_desc(mols: list):
 
     calc = Calculator(descriptors, ignore_3D=True)
     res = calc.pandas(mols)
+    res = _convert_error_columns(res)
     return res
-

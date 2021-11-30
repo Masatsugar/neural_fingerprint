@@ -1,9 +1,9 @@
 # Neural Graph Fingerprint
 * [Convolutional Networks on Graphs for Learning Molecular Fingerprints](https://arxiv.org/pdf/1509.09292.pdf)
  by David Duvenaud et al.
- 
+
  This software is implemented by DGL + PyTorch. Note that this version cannot use mini-batch nor GPU training as it is.
- 
+
 ## Requirements
 Prerequisites include:
 
@@ -18,7 +18,7 @@ In `evaluation.py`, you can see the r2 and RMSE score based on ECFP, NFP, RDKit 
 * minimum usage
 
 ```python
-from nfp import NFPRegressor
+from neural_fingerprint import NFPRegressor
 import rdkit.Chem as Chem
 from rdkit.Chem import Descriptors
 import numpy as np

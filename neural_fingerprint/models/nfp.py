@@ -2,21 +2,18 @@ from typing import List
 
 import dgl
 import dgl.function as fn
-
+import numpy
+import rdkit
+import rdkit.Chem as Chem
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from chemutils import CustomDataset, collate_molgraphs, mol_to_graph
 from torch.utils.data import DataLoader
 
-import numpy
-
-from chemutils import mol_to_graph, CustomDataset, collate_molgraphs
-import rdkit
-import rdkit.Chem as Chem
-
-gcn_msg = fn.copy_src(src='h', out='m')
-gcn_reduce = fn.sum(msg='m', out='h')
+gcn_msg = fn.copy_src(src="h", out="m")
+gcn_reduce = fn.sum(msg="m", out="h")
 
 
 class NFP(nn.Module):
@@ -36,9 +33,9 @@ class NFP(nn.Module):
         with g.local_scope():
             fps = torch.zeros([1, self.nbits])
             for _ in range(self.depth):
-                g.ndata['h'] = n_feat
+                g.ndata["h"] = n_feat
                 g.update_all(gcn_msg, gcn_reduce)
-                h = g.ndata['h']
+                h = g.ndata["h"]
 
                 r = F.relu(self.linear1(h))
                 i = self.softmax(self.linear2(r))
@@ -68,7 +65,7 @@ class NFPRegressor:
 
     Examples
     --------
-    >>> from nfp import NFPRegressor
+    >>> from neural_fingerprint import NFPRegressor
     >>> import rdkit.Chem as Chem
     >>> from rdkit.Chem import Descriptors
     >>> import numpy as np
@@ -93,8 +90,7 @@ class NFPRegressor:
         self.input_dim = None
 
     def __repr__(self):
-        return "{0}(hidden_dim={1}, depth={2}, nbits={3})".format(
-            self.__class__.__name__, self.hidden_dim, self.depth, self.nbits)
+        return f"{self.__class__.__name__}(hidden_dim={self.hidden_dim}, depth={self.depth}, nbits={self.nbits})"
 
     def _preprocess(self, mols, train_y=None):
         if train_y is None:
@@ -103,7 +99,7 @@ class NFPRegressor:
         trainset = CustomDataset()
         graphs = mol_to_graph(mols, canonical=False)
         if self.input_dim is None:
-            self.input_dim = graphs[0].ndata['h'].shape[1]
+            self.input_dim = graphs[0].ndata["h"].shape[1]
 
         smiles = [Chem.MolToSmiles(mol) for mol in mols]
 
@@ -114,10 +110,15 @@ class NFPRegressor:
 
         return loader
 
-    def fit(self, train_mols: List[rdkit.Chem.rdchem.Mol], y_train: numpy.ndarray, epochs: int = 10,
-            lr: float = 0.01, verbose: bool = True) -> None:
+    def fit(
+        self,
+        train_mols: List[rdkit.Chem.rdchem.Mol],
+        y_train: numpy.ndarray,
+        epochs: int = 10,
+        lr: float = 0.01,
+        verbose: bool = True,
+    ) -> None:
         """
-
         :param train_mols:
         :param y_train:
         :param epochs:
@@ -126,10 +127,18 @@ class NFPRegressor:
         :return:
         """
         trainloader = self._preprocess(train_mols, y_train)
-        model = NFP(input_dim=self.input_dim, hidden_dim=self.hidden_dim, depth=self.depth, nbits=self.nbits)
+        model = NFP(
+            input_dim=self.input_dim,
+            hidden_dim=self.hidden_dim,
+            depth=self.depth,
+            nbits=self.nbits,
+        )
         self._train(model, trainloader, epochs, lr, verbose)
+        return self
 
-    def predict(self, test_mols: List[rdkit.Chem.rdchem.Mol], return_fps=True) -> numpy.ndarray:
+    def predict(
+        self, test_mols: List[rdkit.Chem.rdchem.Mol], return_fps=True
+    ) -> numpy.ndarray:
         if self.model is None:
             raise
 
@@ -149,7 +158,7 @@ class NFPRegressor:
             epoch_loss = 0
             for ite, batch in enumerate(train_loader):
                 _, bg, label, masks = batch
-                n_feat = bg.ndata['h']
+                n_feat = bg.ndata["h"]
                 fps, prediction = model(bg, n_feat)
                 loss = (loss_func(prediction, label) * (masks != 0).float()).mean()
                 optimizer.zero_grad()
@@ -157,9 +166,9 @@ class NFPRegressor:
                 optimizer.step()
                 epoch_loss += loss.detach().item()
 
-            epoch_loss /= (ite + 1)
+            epoch_loss /= ite + 1
             if verbose:
-                print(f'Epoch {epoch}, loss {epoch_loss:.4f}')
+                print(f"Epoch {epoch}, loss {epoch_loss:.4f}")
             epoch_losses.append(epoch_loss)
         self.model = model
 
@@ -169,7 +178,7 @@ class NFPRegressor:
         model.eval()
         with torch.no_grad():
             for _, (smi, bg, label, mask) in enumerate(data_loader):
-                n_feat = bg.ndata['h']
+                n_feat = bg.ndata["h"]
                 fp, pred = model(bg, n_feat)
                 fps.append(fp.detach().numpy()[0])
                 preds.append(pred.detach().numpy()[0])
