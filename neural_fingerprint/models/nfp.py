@@ -117,7 +117,7 @@ class NFPRegressor:
         epochs: int = 10,
         lr: float = 0.01,
         verbose: bool = True,
-    ) -> None:
+    ):
         """
         :param train_mols:
         :param y_train:

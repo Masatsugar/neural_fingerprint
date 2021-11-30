@@ -3,10 +3,11 @@ from collections import namedtuple
 import numpy as np
 import pandas as pd
 import rdkit.Chem as Chem
-from models.chemutils import rf_evalation
-from models.ecfp import ECFP
-from models.nfp import NFPRegressor
 from tqdm import tqdm
+
+from neural_fingerprint import NFPRegressor
+from neural_fingerprint.models.chemutils import rf_evalation
+from neural_fingerprint.models.ecfp import ECFP
 
 max_val = 1000
 train_idx = 800
@@ -43,41 +44,6 @@ def benchmark():
     # NFP + Random Forest
     print("Neural fingerprint + Random Forest")
     rf_evalation(train_fps, test_fps, train_y, test_y)
-
-    # features summed over nodes + Random Forest
-    print("Node Features summed over nodes + Random Forest")
-    mols = train_mols.extend(test_mols)
-    feats = np.vstack(
-        [ECFP(mol).createNodeFeatures().sum(axis=0) for mol in tqdm(mols)]
-    )
-    rf_evalation(feats[0:train_idx], feats[train_idx:], train_y, test_y)
-
-    # Extended Connectivity Fingerprint
-    print("ECFP")
-    args = namedtuple("args", ("rad", "nbits"))
-    args = args(rad=2, nbits=2048)
-
-    fps1 = np.vstack(
-        list(map(lambda mol: ECFP(mol, args.rad, args.nbits).calculate(), tqdm(mols)))
-    )
-    rf_evalation(fps1[0:train_idx], fps1[train_idx:], train_y, test_y, args)
-
-    # rdkit morgan fingerprint
-    print("RDKit Morgan fingerprint")
-    from rdkit.Chem.AllChem import GetMorganFingerprintAsBitVect
-
-    fps2 = np.vstack(
-        list(
-            map(
-                lambda mol: GetMorganFingerprintAsBitVect(
-                    mol, radius=args.rad, nBits=args.nbits, useFeatures=True
-                ),
-                tqdm(mols),
-            )
-        )
-    )
-
-    rf_evalation(fps2[0:train_idx], fps2[train_idx:], train_y, test_y, args)
 
 
 def mapping_nodes_eample(train_fps, test_fps):

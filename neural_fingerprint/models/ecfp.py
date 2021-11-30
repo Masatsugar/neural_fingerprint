@@ -1,11 +1,18 @@
 import copy
+from collections import defaultdict
+from typing import Dict
 
 import numpy as np
+import pandas as pd
 import rdkit.Chem as Chem
 
 
 class ECFP:
     """calculate Extended Connectivity Fingerpritns.
+
+    Note that this implementation of ECFP doesn't consider the duplication of substructures based on chemical properties,
+    so that more bit collisions occur than the original one.
+
     :param mol: rdkit mol object
     :param radius (int):
     :param nbits (int):
@@ -24,35 +31,51 @@ class ECFP:
             n_feat = self.createNodeFeatures()
 
         n_feat = np.array(n_feat, dtype=np.int32)
-        n_atoms = n_feat.shape[0]
         self.adj = Chem.GetAdjacencyMatrix(mol)
 
         # concatenate node features.
-        self.n_feat = np.array(
-            ["".join([str(f) for f in n_feat[atom]]) for atom in range(n_atoms)],
-            dtype=str,
+        self.identifier: Dict[int, Dict[int, int]] = defaultdict(dict)
+        for i in range(radius + 1):
+            self.identifier[i] = {}
+        self.identifier[0].update(
+            {
+                i: k
+                for i, k in enumerate(
+                    [
+                        hash("".join([str(f) for f in n_feat[i]]))
+                        for i in range(len(n_feat))
+                    ]
+                )
+            }
         )
 
-    def _concat_neighbor(self, atom: int, n_feat: np.ndarray) -> str:
+    def _concat_neighbor(self, atom: int, identifier: Dict[int, int]) -> str:
         """adjacency info."""
-        nei_id = np.nonzero(self.adj[atom])[0]
-        vec = "".join([str(ind) for ind in n_feat[nei_id]])
+        idx = [atom] + [i for i in np.nonzero(self.adj[atom])[0]]
+        n_feat = np.array([str(f) for f in identifier.values()])
+        # invariant
+        vec = ",".join([f for f in n_feat[idx]])
+        # vec = ",".join([i for i in set([f for f in n_feat[idx]])])
         return vec
 
-    def calculate(self) -> np.ndarray:
+    def _calculate(self) -> None:
+        for r in range(self.radius):
+            for atom in range(len(self.mol.GetAtoms())):
+                v = self._concat_neighbor(atom, self.identifier[r])
+                self.identifier[r + 1].update({atom: hash(v)})
+
+    def calculate(self):
         """
         :return: result of fingerprint.
         """
-        n_atoms = self.n_feat.shape[0]
-        identifier = copy.deepcopy(self.n_feat)
-        for _ in range(0, self.radius):
-            for atom in range(n_atoms):
-                v = self._concat_neighbor(atom, identifier)
-                identifier[atom] = hash(v)
-                index = int(identifier[atom]) % self.nbits
-                self.fps[index] = 1
-        self.identifier = identifier
-        return self.fps
+        self._calculate()
+        index = (
+            np.unique(pd.DataFrame(self.identifier).to_numpy().flatten()) % self.nbits
+        )
+        fps = np.zeros(self.nbits)
+        for i in index:
+            fps[i] = 1
+        return fps
 
     def createNodeFeatures(self) -> np.ndarray:
         features = np.array(
