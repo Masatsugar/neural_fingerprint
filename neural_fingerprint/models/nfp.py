@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from chemutils import CustomDataset, collate_molgraphs, mol_to_graph
+from neural_fingerprint.dglutils import CustomDataset, collate_molgraphs, mol_to_graph
 from torch.utils.data import DataLoader
 
 gcn_msg = fn.copy_src(src="h", out="m")

@@ -6,7 +6,7 @@ import rdkit.Chem as Chem
 from tqdm import tqdm
 
 from neural_fingerprint import NFPRegressor
-from neural_fingerprint.models.chemutils import rf_evalation
+from neural_fingerprint.chemutils import rf_evaluation
 from neural_fingerprint.models.ecfp import ECFP
 
 max_val = 1000
@@ -39,11 +39,11 @@ def benchmark():
 
     # NFP + MLP
     print("Neural fingerprint + MLP")
-    rf_evalation(train_pred, test_pred, train_y, test_y)
+    rf_evaluation(train_pred, test_pred, train_y, test_y)
 
     # NFP + Random Forest
     print("Neural fingerprint + Random Forest")
-    rf_evalation(train_fps, test_fps, train_y, test_y)
+    rf_evaluation(train_fps, test_fps, train_y, test_y)
 
 
 def mapping_nodes_eample(train_fps, test_fps):
